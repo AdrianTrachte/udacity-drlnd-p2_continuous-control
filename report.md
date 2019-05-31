@@ -5,7 +5,11 @@ The agent uses deterministic deep policy gradient (DDPG) as described in [this](
 
 The principal algorithm as given in the [paper](https://arxiv.org/abs/1509.02971) is:
 * **Initialize** local and target critic network Q, Q' and local and target actor network μ, μ'
-* Execute action and get new state and reward from environment
+* **Loop** over episodes
+* --**Initialize** replay buffer R and a random process N
+* --**Receive** initial observation state s
+* --**Loop** over time steps 
+* ----**Select action** $$a = \mu(s|\theta^\mu)$$
 * Store transition in Replay Buffer
 * Sample random Minibatch from Replay Buffer and compute TD-target value with target network
 * Perform gradient descent from local network Q-value to new TD-target with respect to the local network parameters
