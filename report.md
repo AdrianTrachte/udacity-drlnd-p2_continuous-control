@@ -9,7 +9,7 @@ The principal algorithm as given in the [paper](https://arxiv.org/abs/1509.02971
 * --**Initialize** replay buffer R and a random process N
 * --**Receive** initial observation state s
 * --**Loop** over time steps 
-* ----**Select action** $$a = \mu(s|\theta^\mu)$$
+* ----**Select action** a_t = μ(s|θ_μ) + N_t according to policy and exploration noise
 * Store transition in Replay Buffer
 * Sample random Minibatch from Replay Buffer and compute TD-target value with target network
 * Perform gradient descent from local network Q-value to new TD-target with respect to the local network parameters
