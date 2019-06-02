@@ -40,14 +40,16 @@ class Agent():
 
         # Q-Network / Critic
         # Create the network, define the criterion and optimizer
-        hidden_layers = [37, 37]
+        # hidden_layers = [37, 37]
+        hidden_layers = [37, 37, 37]
         self.qnetwork_local = QNetwork(state_size, action_size, hidden_layers, seed).to(device)
         self.qnetwork_target = QNetwork(state_size, action_size, hidden_layers, seed).to(device)
         self.qnetwork_optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=LR_CRIT, weight_decay=WEIGHT_DECAY)
         
         # mu-Network / Actor
         # Create the network, define the criterion and optimizer
-        hidden_layers = [37, 37]
+        # hidden_layers = [33, 33]
+        hidden_layers = [33, 33, 33]
         self.munetwork_local = ActorPolicy(state_size, action_size, hidden_layers, seed).to(device)
         self.munetwork_target = ActorPolicy(state_size, action_size, hidden_layers, seed).to(device)
         self.munetwork_optimizer = optim.Adam(self.munetwork_local.parameters(), lr=LR_ACTR)
