@@ -79,3 +79,30 @@ class ActorPolicy(nn.Module):
         x = self.output(x)
         
         return torch.tanh(x)
+
+    
+class ActorPPO(ActorPolicy):
+    """ Actor (Policy) for PPO """
+    def __init__(self, state_size, action_size, hidden_layers, seed, std = 0.0):
+        """Initialize parameters and build model.
+        Params
+        ======
+            state_size (int): Dimension of each state
+            action_size (int): Dimension of each action
+            hidden_layers (list of ints): the sizes of the hidden layers
+            std (float): logarithmic standard deviation for output distribution
+            seed (int): Random seed
+        """
+        super().__init__(state_size, action_size, hidden_layers, seed)
+        
+        # add standard deviation
+        self.log_std = nn.Parameter(torch.ones(1, action_size) * std)
+        
+    def forward(self, state):
+        # get mean value from super classe
+        mu = super(ActorPPO, self).forward(state)
+        # compute standard deviation
+        std   = self.log_std.exp()
+        dist  = torch.distributions.Normal(mu, std)
+        
+        return mu, dist

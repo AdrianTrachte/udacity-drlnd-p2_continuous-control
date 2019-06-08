@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 import torch.optim as optim
 
-BUFFER_SIZE = int(1e5)  # replay buffer size
+BUFFER_SIZE = int(5e5)  # replay buffer size
 BATCH_SIZE = 64         # minibatch size for learning
 GAMMA = 0.99            # discount factor
 TAU = 1e-3              # for soft update of target parameters
@@ -41,7 +41,6 @@ class Agent():
         # Q-Network / Critic
         # Create the network, define the criterion and optimizer
         hidden_layers = [37, 37]
-        # hidden_layers = [37, 37, 37]
         self.qnetwork_local = QNetwork(state_size, action_size, hidden_layers, seed).to(device)
         self.qnetwork_target = QNetwork(state_size, action_size, hidden_layers, seed).to(device)
         self.qnetwork_optimizer = optim.Adam(self.qnetwork_local.parameters(), lr=LR_CRIT, weight_decay=WEIGHT_DECAY)
@@ -49,7 +48,6 @@ class Agent():
         # mu-Network / Actor
         # Create the network, define the criterion and optimizer
         hidden_layers = [33, 33]
-        # hidden_layers = [33, 33, 33]
         self.munetwork_local = ActorPolicy(state_size, action_size, hidden_layers, seed).to(device)
         self.munetwork_target = ActorPolicy(state_size, action_size, hidden_layers, seed).to(device)
         self.munetwork_optimizer = optim.Adam(self.munetwork_local.parameters(), lr=LR_ACTR)

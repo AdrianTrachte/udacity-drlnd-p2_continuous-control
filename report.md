@@ -1,7 +1,7 @@
 # 1. Learning Algorithm
 
 ## Agent and DDPG Algorithm
-The agent uses deterministic deep policy gradient (DDPG) as described in [this](https://arxiv.org/abs/1509.02971) article. It has one critic network evaluating the current state and action and an actor network returning  continous actions to a given (continous) state. For both, critic and actor, local and networks are used.
+The agent uses deterministic deep policy gradient (DDPG) as described in [this](https://arxiv.org/abs/1509.02971) article. It has one critic network evaluating the current state and action and an actor network returning  continous actions to a given (continous) state. For both, critic and actor, local and target networks are used.
 
 The principal algorithm as given in the [paper](https://arxiv.org/abs/1509.02971) is:
 * **Initialize** local and target critic network Q, Q' and local and target actor network μ, μ', replay buffer R
@@ -20,36 +20,34 @@ The principal algorithm as given in the [paper](https://arxiv.org/abs/1509.02971
 * --**End Loop**
 * **End Loop**
 
-Where these steps are repeated for each step in each episode. Note that the epsilon value for choosing the action epsilon greedy is reduced linearly over episodes, starting with `eps_start = 1.0` and ending at `eps_end = 0.01` after `eps_nEpisodes = 1000`. 
+Where these steps are repeated for each step in each episode. Note that the epsilon value for choosing the action epsilon greedy is reduced linearly over episodes, starting with `eps_start = 1.5` and ending at `eps_end = 0.01` after `eps_nEpisodes = 4000`. 
 
 Further agent hyperparameters are:
 
-	BUFFER_SIZE = int(1e5)  # replay buffer size
+	BUFFER_SIZE = int(5e5)  # replay buffer size
 	BATCH_SIZE = 64         # minibatch size for learning
 	GAMMA = 0.99            # discount factor
 	TAU = 1e-3              # for soft update of target parameters
-	LR = 5e-4               # learning rate 
-	UPDATE_EVERY = 4        # how often to update the network
+	LR_CRIT = 1e-3          # learning rate critic
+	LR_ACTR = 1e-4          # learning rate actor
+	WEIGHT_DECAY = 1e-2     # L2 weight decay
+	UPDATE_EVERY = 1        # how often to update the network
+	GD_EPOCH = 1            # how often to optimize when learning is triggered
 	
 As optimizer `Adam` has been used.
 
 ## Neural Network
-As the observation space of the environment is `state_size = 37` the input size of the neural network matches this size and as `action_size = 4` the output size of the neural network matches this as well. Between input and output are two linear hidden layers, both with size `hidden_layers = [37*3, 37*3]` and `relu` activation. 
+As the observation space of the environment is `state_size = 33` and `action_size = 4`, the input size of the critic network Q(s_i, a_i | θ_Q) is 37 and output size is 1. The input size of the actor μ(s_i | θ_μ) is equal to the state size 33. For both networks two linear hidden layers are used, with size `hidden_layers = [37, 37]` for the critic and `hidden_layers = [33, 33]` for the actor, both with `relu` activation. For the actor the output function `tanh` is used to keep outputs between -1 and 1.
 
 # 2. Plot of Rewards
 With the above described agent the environment has been solved in 1029 episodes. The development of average rewards as well with all scores over each episode are provided below.
 
-	Episode 100	Average Score: 0.31
-	Episode 200	Average Score: 2.32
-	Episode 300	Average Score: 4.46
-	Episode 400	Average Score: 7.93
-	Episode 500	Average Score: 11.21
-	Episode 551	Average Score: 13.00
-	Environment solved in 551 episodes!	Average Score: 13.00
+![Score over Episodes for DDPG agent](./data/DDPG_results_report.png "Score over Episodes")
 
-![Score over Episodes for DQN agent](./data/score_over_episodes_report.png "Score over Episodes")
+The above result shows a succesful and robust way of learning but takes a lot of time. Faster results can be achieved, but this is not really stable as can be seen in the next plot with 3 simulations where exploration is reduced from `eps_start = 1.0` to `eps_end = 0.01` after `eps_nEpisodes = 1800`. While the first run was able to reach the goal of 30 really fast the following two runs would have needed more exploration in order to proceed to the goal.
 
-# 3. Ideas for Future Work
-As the DQN algorithm overestimates the action values by taking always the maximum of noisy data, the algorithm can be extended to a Double DQN (DDQN). In DDQN when evaluating the best action value the process is splitted into selection of the best action and evaluation of the best action. So both have to agree on the best action, otherewise the resulting action value is not as high. For the evaluation part the already implemented target neural network can be reused. This [paper](https://arxiv.org/abs/1509.06461) gives the details about this concept and how DQN overestimates the action values.
+![Compare Scores over Episodes for DDPG agent](./data/DDPG_compare_runs.png "Compare runs")
 
-Another thing worth investigating further is prioritized experience replay. The main idea behind this concept is, that not all experiences are equally important. Therefore to each experience / transition the TD-error is added as a measure of priority. With this a probability can be formulated, favoring experiences more important. Though some further extensions are necessary to assure a certain amount of randomness and the update rule has to incorporate this changed selection process as well. More details can be found in this [paper](https://arxiv.org/abs/1511.05952).
+
+# 4. Ideas for Future Work
+Training of the DDPG algorithm takes a lot of time and a lot of exploration is needed in order to get stable results. Therefore other algorithms maybe worth investigating such as Trust Region Policy Optimization (TRPO), which seems to provide a fast and stable learning according to [this paper](https://arxiv.org/pdf/1604.06778.pdf). 
