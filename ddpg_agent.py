@@ -18,7 +18,7 @@ LR_ACTR = 1e-4          # learning rate actor
 WEIGHT_DECAY = 1e-2     # L2 weight decay
 UPDATE_EVERY = 1        # how often to update the network
 GD_EPOCH = 1            # how often to optimize when learning is triggered
-
+CLIP_GRAD = 1           # clippin gradient with this value
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -115,7 +115,7 @@ class Agent():
             critic_loss = F.mse_loss(Q_expected, Q_targets)
             # Minimize the loss
             self.qnetwork_optimizer.zero_grad()
-            #torch.nn.utils.clip_grad_norm(self.qnetwork_local.parameters(), 1)
+            torch.nn.utils.clip_grad_norm_(self.qnetwork_local.parameters(), CLIP_GRAD)
             critic_loss.backward()
             self.qnetwork_optimizer.step()
             del critic_loss

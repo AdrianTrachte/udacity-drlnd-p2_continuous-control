@@ -41,7 +41,7 @@ The task is episodic, and in order to solve the environment, the agent must get 
 **Remark:** There is also an environment.yaml in the repository as I had to slightly adjust the process described above, using `pytorch=0.4.1` instead of version 0.4.0 as requested in the installation files.
 
 ### Instructions
-Run the code in `Continuous_Control.ipynb` to load the environment and train the agent. The training part can be skipped and a trained agent can be loaded and tested directly in section 5.  
+Run the code in `Continuous_Control.ipynb` to load the environment and train the agent. The training part can be skipped and a trained agent can be loaded and tested directly in section 5. In the `Continuous_Control_Analyze.ipynb` some additional calculations and plots are done and shown. Furthermore a `Continuous_Control_PPO.ipynb` exists, which runs a PPO agent, but this is not finished for now. 
 
 ### Sources and License
 A lot of the source code and installation instructions is taken from the Udacity nanodegree [Deep Reinforcement Learning](https://github.com/udacity/deep-reinforcement-learning#dependencies) which is under MIT License:

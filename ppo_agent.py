@@ -85,6 +85,11 @@ class Agent():
         print('Size future rewards {}'.format(rewards_future.size()))    
         print(rewards_future)
         
+        # normalization of future rewards
+        mean = torch.mean(rewards_future, dim=1)
+        std = torch.std(rewards_future, dim=1) + 1.0e-10
+        rewards_normalized = (rewards_future - mean[:,np.newaxis])/std[:,np.newaxis]
+    
         # Compute TD error 
         values = self.qnetwork(states, actions)
         print('Size values {}'.format(values.size()))
