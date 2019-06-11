@@ -2,7 +2,7 @@ import numpy as np
 import random
 from collections import namedtuple, deque
 
-from models import QNetwork
+from models import CriticPPO
 from models import ActorPPO
 
 import torch
@@ -10,8 +10,8 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 GAMMA = 0.99            # discount factor
+LAMBDA = 0.95           # discount advantage function
 BATCH_SIZE = 64         # batch size for learning from trajectory
-TAU = 1e-3              # for soft update of target parameters
 LR_CRIT = 1e-3          # learning rate critic
 LR_ACTR = 1e-4          # learning rate actor
 WEIGHT_DECAY = 1e-2     # L2 weight decay
@@ -36,11 +36,11 @@ class Agent():
         self.action_size = action_size
         self.seed = random.seed(seed)
 
-        # Q-Network / Critic
+        # Critic
         # Create the network, define the criterion and optimizer
         hidden_layers = [37, 37]
-        self.qnetwork = QNetwork(state_size, action_size, hidden_layers, seed).to(device)
-        self.qnetwork_optimizer = optim.Adam(self.qnetwork.parameters(), lr=LR_CRIT, weight_decay=WEIGHT_DECAY)
+        self.vnetwork = CriticPPO(state_size, 1, hidden_layers, seed).to(device)
+        self.vnetwork_optimizer = optim.Adam(self.vnetwork.parameters(), lr=LR_CRIT, weight_decay=WEIGHT_DECAY)
         
         # mu-Network / Actor
         # Create the network, define the criterion and optimizer
@@ -55,11 +55,7 @@ class Agent():
         
         # get discounts ready
         discount = GAMMA**np.arange(len(rewards))
-        print(discount)
-        print(discount[:,np.newaxis])
-        print(np.asarray(rewards))
         rewards = np.asarray(rewards)*discount[:,np.newaxis] 
-        print(np.asarray(rewards))
         
         # convert everything to torch 
         states = torch.tensor(states, dtype=torch.float32, device=device)
@@ -72,18 +68,14 @@ class Agent():
         print('Size rewards {}'.format(rewards.size()))
 
         # convert states to policy (or probability)
-        _, dist = self.munetwork(states)         # get distribution
+        _, dist = self.munetwork(states)        # get distribution
         log_probs = dist.log_prob(actions)      # get probability
-        
-        # get state values
-        values = self.qnetwork(states, actions)
               
         # convert rewards to future rewards
         rewards_future = torch.empty(rewards.shape[0], rewards.shape[1], dtype=torch.float, device=device)
         for i in range(rewards.shape[0]):
             rewards_future[i,:] = torch.sum(rewards[i:,:],dim=0)
-        print('Size future rewards {}'.format(rewards_future.size()))    
-        print(rewards_future)
+        print('Size future rewards {}'.format(rewards_future.size()))          
         
         # normalization of future rewards
         mean = torch.mean(rewards_future, dim=1)
@@ -91,9 +83,13 @@ class Agent():
         rewards_normalized = (rewards_future - mean[:,np.newaxis])/std[:,np.newaxis]
     
         # Compute TD error 
-        values = self.qnetwork(states, actions)
+        # td_error = r_t + GAMMA * V(s_t+1) - V(s_t)
+        # td_error = reward + GAMMA * next_value - value
+        values = self.vnetwork(states)   # get state values
         print('Size values {}'.format(values.size()))
-        #td_error = reward + GAMMA * next_value - value
+        td_error = values
+        
+
         # Compute advantages
         #advantage = advantage * TAU * GAMMA * done + td_error
         
@@ -138,24 +134,24 @@ class Agent():
         for _ in range(GD_EPOCH):
             # Get predicted next-state actions and Q values from target models
             actions_next = self.munetwork_target(next_states)
-            Q_targets_next = self.qnetwork_target(next_states, actions_next)
+            Q_targets_next = self.vnetwork_target(next_states, actions_next)
             # Compute Q targets for current states (y_i)
             Q_targets = rewards + (gamma * Q_targets_next * (1 - dones))
             # Compute critic loss
-            Q_expected = self.qnetwork_local(states, actions)
+            Q_expected = self.vnetwork_local(states, actions)
             critic_loss = F.mse_loss(Q_expected, Q_targets)
             # Minimize the loss
-            self.qnetwork_optimizer.zero_grad()
-            #torch.nn.utils.clip_grad_norm(self.qnetwork_local.parameters(), 1)
+            self.vnetwork_optimizer.zero_grad()
+            torch.nn.utils.clip_grad_norm(self.vnetwork_local.parameters(), 1)
             critic_loss.backward()
-            self.qnetwork_optimizer.step()
+            self.vnetwork_optimizer.step()
             del critic_loss
 
         # ---------------------------- update actor ---------------------------- #
         for _ in range(GD_EPOCH):
             actions_pred = self.munetwork_local(states)
             # Compute actor loss
-            actor_loss = -self.qnetwork_local(states, actions_pred).mean()
+            actor_loss = -self.vnetwork_local(states, actions_pred).mean()
             # Minimize the loss
             self.munetwork_optimizer.zero_grad()
             actor_loss.backward()
@@ -164,7 +160,7 @@ class Agent():
 
         # ----------------------- update target networks ----------------------- #
         self.soft_update(self.munetwork_local, self.munetwork_target, TAU)
-        self.soft_update(self.qnetwork_local, self.qnetwork_target, TAU)      
+        self.soft_update(self.vnetwork_local, self.vnetwork_target, TAU)      
         
         
     def soft_update(self, local_model, target_model, tau):
