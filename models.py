@@ -121,7 +121,7 @@ class CriticPPO(nn.Module):
     
 class ActorPPO(ActorPolicy):
     """ Actor (Policy) for PPO """
-    def __init__(self, state_size, action_size, hidden_layers, seed, std = 0.0):
+    def __init__(self, state_size, action_size, hidden_layers, seed, log_std = 0.0):
         """Initialize parameters and build model.
         Params
         ======
@@ -134,13 +134,13 @@ class ActorPPO(ActorPolicy):
         super().__init__(state_size, action_size, hidden_layers, seed)
         
         # add standard deviation
-        self.log_std = nn.Parameter(torch.ones(1, action_size) * std)
+        self.log_std = nn.Parameter(torch.ones(1, action_size) * log_std)
         
     def forward(self, state):
         # get mean value from super classe
         mu = super(ActorPPO, self).forward(state)
         # compute standard deviation
-        std   = self.log_std.exp()
+        std = self.log_std.exp()
         dist  = torch.distributions.Normal(mu, std)
         
         return mu, dist
