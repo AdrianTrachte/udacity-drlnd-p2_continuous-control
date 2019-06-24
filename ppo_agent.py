@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 
 GAMMA = 1.0             # discount factor
 LAMBDA = 0.5            # Value for Generalized Advantage Estimation, lambda = 0 --> 1 step TD estimate
-BATCH_SIZE = 64         # batch size for learning from trajectory
+BATCH_SIZE = 1001       # batch size for learning from trajectory
 LR_CRIT = 1e-3          # learning rate critic
 LR_ACTR = 1e-4          # learning rate actor
 WEIGHT_DECAY = 1e-2     # L2 weight decay
-GD_EPOCH = 20           # how often to optimize when learning is triggered
+GD_EPOCH = 3           # how often to optimize when learning is triggered
 EPS_CLIP = 0.2          # PPO clipping value
 GRAD_CLIP = 2           # clipping of gradient for optimization
 
@@ -54,7 +54,7 @@ class Agent():
         # Noise process
         self.noise = OUNoise(action_size, seed)
     
-    def step(self, states, actions, rewards, beta, infos=False):        
+    def step(self, states, actions, rewards, done, beta, infos=False):        
         """Step agent and compute advantage function for learning.
         
         Params
@@ -67,10 +67,11 @@ class Agent():
         states = torch.tensor(states, dtype=torch.float32, device=device)
         actions = torch.tensor(actions, dtype=torch.float32, device=device)
         rewards = torch.tensor(rewards, dtype=torch.float32, device=device)
+        done = torch.tensor(done, dtype=torch.float32, device=device)
         
         # compute advantages
         #advantages = self.compute_gae(states, rewards)
-        advantages = self.compute_tderror(states, rewards)        # use td-error as advantage function
+        advantages = self.compute_tderror(states, rewards, done)        # use td-error as advantage function
         
         # normalization
         advantages = (advantages - advantages.mean()) / advantages.std()
@@ -106,24 +107,27 @@ class Agent():
         fig.subplots_adjust(hspace=.4)
 
         plt.subplot(2,2,1)
-        plt.plot(rewards.cpu().numpy())
+        plt.plot(rewards.cpu().numpy(), label='rewards')
+        h = plt.plot(rewards_future.cpu().numpy(), label='future rewards')
+        plt.xlabel('time steps')
+        plt.ylabel('score')
+        plt.legend(loc='best')
         plt.title('rewards')
         
-        plt.subplot(2,2,2)
-        plt.plot(rewards_future.cpu().numpy())
-        plt.title('rewards_future')
-        
-        plt.subplot(2,2,3)
+        ax1 = fig.add_subplot(2,2,2)
         values = self.vnetwork(states)
-        plt.plot(values.detach().cpu().numpy())
-        plt.title('values')
-        
-        plt.subplot(2,2,4)
-        plt.plot(advantages.detach().cpu().numpy())
-        plt.title('advantages')
+        ax1.plot(values.detach().cpu().numpy(), label='values')
+        plt.xlabel('time steps')
+        plt.ylabel('values')
+        ax2 = ax1.twinx()
+        ax2.plot(advantages.detach().cpu().numpy(), label='advantages', c=h[-1].get_color())
+        plt.xlabel('time steps')
+        plt.ylabel('advantages')
+        plt.legend(loc='best')
+        plt.title('values & advantages')
         plt.show()
             
-    def compute_gae(self, states, rewards):
+    def compute_gae(self, states, rewards, done):
         """ compute the generalized advantage estimation
         
         Params
@@ -132,7 +136,7 @@ class Agent():
             rewards (PyTorch tensor): rewards of trajectory
         """
         # compute td_error
-        td_error = self.compute_tderror(states, rewards)
+        td_error = self.compute_tderror(states, rewards, done)
         
         # get discounts and lambda ready
         discount = (GAMMA*LAMBDA)**torch.arange(len(rewards), dtype=torch.float, device=device)
@@ -145,7 +149,7 @@ class Agent():
                 advantages[i,:] = torch.sum(td_error[i:,:]*torch.unsqueeze(discount[0:-i],1),dim=0)
         return advantages        
         
-    def compute_tderror(self, states, rewards):
+    def compute_tderror(self, states, rewards, done):
         """ compute the td-error
         
         Params
@@ -158,7 +162,7 @@ class Agent():
         next_values[:-1] = values[1:]    # next values, last next_value is zero
         # compute actual td-error
         # td_error = r_t + GAMMA * V(s_t+1) - V(s_t)
-        td_error = rewards + GAMMA*next_values - values
+        td_error = rewards + (GAMMA*next_values - values)*(1-done)
         return td_error
         
     def act(self, state, beta = 1.0, add_noise=True):
@@ -242,7 +246,7 @@ class Agent():
         # actual PPO comes here
         expected_return = -torch.min(advantages*ratio, advantages*torch.clamp(ratio, 1-EPS_CLIP, 1+EPS_CLIP)) - beta*dist.entropy()
 
-        return torch.mean(expected_return)
+        return torch.mean(-expected_return)
     
 class OUNoise:
     """Ornstein-Uhlenbeck process.
