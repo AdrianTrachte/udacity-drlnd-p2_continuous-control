@@ -1,6 +1,6 @@
 [//]: # (Image References)
 
-# Project 1: Navigation
+# Project 2: Continous Control
 
 ### Project Details
 In this project a [Reacher](https://github.com/Unity-Technologies/ml-agents/blob/master/docs/Learning-Environment-Examples.md#reacher) is trained to follow a green bubble.  
