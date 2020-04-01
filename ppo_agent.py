@@ -11,15 +11,15 @@ import torch.optim as optim
 
 import matplotlib.pyplot as plt
 
-GAMMA = 1.0             # discount factor
-LAMBDA = 0.5            # Value for Generalized Advantage Estimation, lambda = 0 --> 1 step TD estimate
-BATCH_SIZE = 1001       # batch size for learning from trajectory
-LR_CRIT = 1e-3          # learning rate critic
+GAMMA = 0.99            # discount factor
+LAMBDA = 0.95           # Value for Generalized Advantage Estimation, lambda = 0 --> 1 step TD estimate
+BATCH_SIZE = 64       # batch size for learning from trajectory
+LR_CRIT = 5e-4          # learning rate critic
 LR_ACTR = 1e-4          # learning rate actor
-WEIGHT_DECAY = 1e-2     # L2 weight decay
-GD_EPOCH = 3           # how often to optimize when learning is triggered
+WEIGHT_DECAY = 0        # L2 weight decay
+GD_EPOCH = 2            # how often to optimize when learning is triggered
 EPS_CLIP = 0.2          # PPO clipping value
-GRAD_CLIP = 2           # clipping of gradient for optimization
+GRAD_CLIP = 1           # clipping of gradient for optimization
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -41,15 +41,17 @@ class Agent():
 
         # Critic
         # Create the network, define the criterion and optimizer
-        hidden_layers = [37, 37]
+        #hidden_layers = [37, 37]
+        hidden_layers = [64, 64]
         self.vnetwork = CriticPPO(state_size, 1, hidden_layers, seed).to(device)
         self.vnetwork_optimizer = optim.Adam(self.vnetwork.parameters(), lr=LR_CRIT, weight_decay=WEIGHT_DECAY)
         
         # mu-Network / Actor
         # Create the network, define the criterion and optimizer
-        hidden_layers = [33, 33]
+        #hidden_layers = [33, 33]
+        hidden_layers = [64, 64]
         self.munetwork = ActorPPO(state_size, action_size, hidden_layers, seed).to(device)
-        self.munetwork_optimizer = optim.Adam(self.munetwork.parameters(), lr=LR_ACTR)
+        self.munetwork_optimizer = optim.Adam(self.munetwork.parameters(), lr=LR_ACTR, eps = 1e-5)
         
         # Noise process
         self.noise = OUNoise(action_size, seed)
@@ -70,8 +72,8 @@ class Agent():
         done = torch.tensor(done, dtype=torch.float32, device=device)
         
         # compute advantages
-        #advantages = self.compute_gae(states, rewards)
-        advantages = self.compute_tderror(states, rewards, done)        # use td-error as advantage function
+        advantages = self.compute_gae(states, rewards, done)
+        #advantages = self.compute_tderror(states, rewards, done)        # use td-error as advantage function
         
         # normalization
         advantages = (advantages - advantages.mean()) / advantages.std()
@@ -134,6 +136,7 @@ class Agent():
         ======
             states (PyTorch tensor): states of trajectory
             rewards (PyTorch tensor): rewards of trajectory
+            done (PyTorch tensor): indicares end of episode and trajectory
         """
         # compute td_error
         td_error = self.compute_tderror(states, rewards, done)
@@ -154,7 +157,9 @@ class Agent():
         
         Params
         ======
-            states (PyTorch tensor): states of trajectory            
+            states (PyTorch tensor): states of trajectory
+            rewards (PyTorch tensor): rewards of trajectory
+            done (PyTorch tensor): indicares end of episode and trajectory
         """
         # Compute advantage function TD error 
         values = self.vnetwork(states)   # get state values
@@ -195,7 +200,7 @@ class Agent():
         """
         
         # convert states to policy (or probability)
-        _, dist = self.munetwork(states)        # get distribution
+        _, dist = self.munetwork(states)            # get distribution
         log_probs_old = dist.log_prob(actions)      # get probability
 
         
@@ -212,6 +217,7 @@ class Agent():
                 torch.nn.utils.clip_grad_norm_(self.vnetwork.parameters(), GRAD_CLIP)
                 value_loss.backward()
                 self.vnetwork_optimizer.step()
+                del value_loss
 
                 # ---------------------------- update actor ---------------------------- #
                 # Compute actor loss
@@ -221,6 +227,7 @@ class Agent():
                 torch.nn.utils.clip_grad_norm_(self.munetwork.parameters(), GRAD_CLIP)
                 actor_loss.backward(retain_graph=True)
                 self.munetwork_optimizer.step()
+                del actor_loss
             
     def sample(self, states, actions, log_probs_old, rewards, advantages):
         idx = np.random.randint(0, states.size(0), BATCH_SIZE)
@@ -246,7 +253,7 @@ class Agent():
         # actual PPO comes here
         expected_return = -torch.min(advantages*ratio, advantages*torch.clamp(ratio, 1-EPS_CLIP, 1+EPS_CLIP)) - beta*dist.entropy()
 
-        return torch.mean(-expected_return)
+        return torch.mean(expected_return)
     
 class OUNoise:
     """Ornstein-Uhlenbeck process.
